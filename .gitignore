@@ -36,4 +36,7 @@ vignettes/*.pdf
 rsconnect/
 
 # All data
-**/*.RData
+data/
+figures/
+temp/
+old/
