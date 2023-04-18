@@ -22,6 +22,7 @@ library(PHEindicatormethods) # Includes standard European population
 library(Matrix) # For nearPD function
 library(reshape2) # For long-to-wide
 library(tidyr)
+library(zen4R) # To download data from Zenodo
 
 #----- Analysis
 library(dlnm) # Functions to perform DLNM on first stage
@@ -38,3 +39,4 @@ library(ggplot2)
 library(scales)
 library(scico)
 library(patchwork)
+library(ggdist)

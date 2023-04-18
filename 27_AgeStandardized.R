@@ -38,15 +38,6 @@ cityageres <- merge(stage2df, demogrp, by.x = c("city", "agegroup"),
     
 #----- Prepare standard population
 
-# # Define minimum age of groups (5 years bands) see ?esp2013
-# espbreaks <- (seq_along(esp2013) - 1) * 5
-# 
-# # Create groups
-# espgrps <- cut(espbreaks, c(agebreaks, 100), right = F, labels = agelabs)
-# 
-# # Sum standard population for each group
-# esptot <- tapply(esp2013, espgrps, sum)
-
 # Average population proportion in Italy
 isp <- aggregate(popprop ~ agegroup, cityageres, mean)$popprop
 
@@ -108,7 +99,7 @@ regionageres <- cityageres |> group_by(agegroup, geozone) |>
     excessrate = byrate * an / agepop
   )
 
-# Computae standradized excess rates
+# Compute standardized excess rates
 stdexcess_region <- aggregate(excessrate ~ geozone, regionageres, 
   weighted.mean, w = isp)
 colnames(stdexcess_region)[-1] <- c("total", "cold", "heat")
@@ -117,22 +108,21 @@ colnames(stdexcess_region)[-1] <- c("total", "cold", "heat")
 
 # Aggregate by city
 totexcessrate <- cityageres |> group_by(city) |>
-  
   # Denominator is total population
-  summarise(totexcessrate = byrate * colSums(an) / sum(agepop), 
-    type = colnames(an)) |>
-  
-  # To have the excess rates as columns
-  dcast(city ~ type, value.var = "totexcessrate")
+  summarise(totexcessrate = t(byrate * colSums(an) / sum(agepop))) |>
+  do.call(what = data.frame) |>
+  rename(total = "totexcessrate.1", cold = "totexcessrate.2", 
+    heat = "totexcessrate.3")
 
-#-----------------------------
+####################################
 # Plots
-#-----------------------------
+####################################
 
 # Select cities to display
-citysel <- cityageres |> subset(agegroup == "85+")|>
-  subset(popprop %in% quantile(popprop, seq(0, 1, length.out = 5)) & 
-      !duplicated(popprop), city, drop = T) 
+citysel <- cityageres |> subset(agegroup == "85+") |>
+  subset(rank(popprop, ties.method = "first") %in% 
+      round(seq(1, n, length.out = 5)) & !duplicated(popprop), 
+    city, drop = T) 
 citysel <- as.character(citysel[order(subset(cityageres, 
   city %in% citysel & agegroup == "85+", popprop, drop = T))])
 
@@ -146,12 +136,12 @@ demoplot <- subset(demodf, CITY_CODE %in% citysel) |>
 
 # Plot
 ggplot(demoplot) + theme_classic() + 
-  geom_step(aes(x = agemin, y = prop, col = city), size = 2) + 
-  scale_colour_scico_d(palette = "oslo", end = .8, name = "") + 
+  geom_smooth(aes(x = agemin, y = prop / 5, col = city), size = 2, se = F) + 
+  scale_colour_viridis(option = "mako", end = .9, name = "", discrete = T) + 
   labs(x = "Age", y = "Population percentage (%)")
 
 # Save
-ggsave("figures/Fig5a_popStructure.pdf")
+ggsave("figures/Fig7_popStructure.pdf", width = 7, height = 5)
 
 #----- Compare standardised and non-standardised
 
@@ -166,22 +156,21 @@ excessplot <- mutate(excessplot,
   city = factor(as.character(city), rev(as.character(citysel))))
 
 # Color palette
-pal <- scico(2, palette = "oslo", begin = .2, end = .7)
+pal <- mako(2, begin = .2, end = .7)
 names(pal) <- c("tot", "std")
 
 # Plot
 ggplot(excessplot) + theme_classic() + 
-  geom_col(aes(x = city, y = heat, fill = type, col = city), 
+  geom_col(aes(x = city, y = heat, fill = type), 
     position = "dodge", width = .7, size = 2) + 
   scale_x_discrete(breaks = citysel,
     labels = with(metadata, CITY_NAME[match(citysel, CITY_CODE)])) + 
   scale_y_continuous(expand = c(0, 0)) + 
   scale_fill_manual(values = pal, name = "", 
     labels = c(std = "Standardised", tot = "Non-standardised")) +
-  scale_colour_scico_d(palette = "oslo", end = .8, name = "", guide = "none") +
   labs(y = "Excess motality rate (x 100,000)", x = "") + 
   theme(panel.grid.major.x = element_line(colour = "grey", linetype = 2)) + 
   coord_flip()
 
 # Save
-ggsave("figures/Fig5b_ExcessComparison.pdf", height = 8)
+ggsave("figures/Fig8_ExcessComparison.pdf", width = 6)

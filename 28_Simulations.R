@@ -17,20 +17,21 @@ set.seed(12345)
 metacoefsim <- mvrnorm(nsim, coef(stage2res), vcov(stage2res))
 
 # Design matrix from second stage
-design_mat <- model.matrix(delete.response(terms(stage2res)), stage2df) %x% 
+design_mat <- model.matrix(delete.response(terms(stage2res)), newdata) %x% 
   diag(nc)
 
 # Generate fixed part of city-age coefficients
 fixsim <- design_mat %*% t(metacoefsim)
 
 # Generate random part from
-# nearPD forces vcov matrix to be psotivie definite
-ransim <- lapply(ranpred, function(x) mvrnorm(nsim, x$fit, nearPD(x$vcov)$mat))
-ransim <- t(do.call(cbind, ransim))
+# nearPD forces vcov matrix to be positive definite
+ransim <- foreach(x = ranpred, .combine = rbind) %do% {
+  t(mvrnorm(nsim, x$fit, nearPD(x$vcov)$mat))
+}
 
 # Add them and rearrange as array
 coefsim <- fixsim + ransim
-coefsim <- aperm(array(c(coefsim), dim = c(nc, n * nage, nsim)), c(2, 1, 3))
+coefsim <- aperm(array(c(coefsim), dim = c(nc, na, nsim)), c(2, 1, 3))
 
 #----- Apply attribution to all simulated
 
@@ -113,7 +114,7 @@ dimnames(stdexcessCI_region)[[1]] <- c("low", "high")
 # Simulations from predicted coef as comparison
 #----------------------------
 
-afsim_old <- foreach(ifix = newcoefs, iran = ranpred, 
+afsim_old <- foreach(ifix = fixpred, iran = ranpred, 
   dat = dlist[cityageres$city]) %do% {
   
   # Simulate coefficients
@@ -199,13 +200,13 @@ alldf <- merge(alldf, estdf)
 # Plot
 ggplot(simdf) + theme_classic() + 
   stat_gradientinterval(aes(x = geozone, y = total, fill = type), 
-    position = "dodge", point_colour = NA, .width = .95) + 
+    position = position_dodge(width = .9), point_colour = NA, .width = .95) + 
   scale_fill_scico_d(palette = "cork", name = "Sampling", direction = -1,
     labels = c(new = "Meta-regression", old = "Predictions")) + 
   geom_point(aes(x = geozone, y = est, group = type), 
     data = subset(alldf, variable == "total"), size = 4,
-    position = position_dodge2(width = 1)) + 
-  labs(x = "Region", y = "Standardized excess mortaltiy rates (x 100,000)")
+    position = position_dodge2(width = .9)) + 
+  labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
 
 # Save
-ggsave("figures/Fig6a_IntervalsComparison.png")
+ggsave("figures/Fig9_IntervalsComparison.png")

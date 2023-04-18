@@ -12,10 +12,6 @@
 
 #----- Data management
 
-# Paths
-path_nuts <- "V:/VolumeQ/AGteam/Eurostat/Regional by NUTS classification (reg)"
-path_urau <- "V:/VolumeQ/AGteam/Eurostat/Urban Audit (urb_cgc)"
-
 # Years to be considered in the analysis
 year <- 2011:2021
 
@@ -53,8 +49,11 @@ metaprednames <- c(Population = "pop", 'Population above 65' = "prop_65p",
   'PM2.5' = "pm25", NO2 = "no2", 'Average temperature' = "tmean", 
   'Temperature range' = "trange")
 
+# Number of composite vulnerability incides
+npc <- 5
+
 # Number of simulations for eCI
-nsim <- 20
+nsim <- 1000
 
 #----- Results
 

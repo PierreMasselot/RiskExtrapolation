@@ -59,7 +59,22 @@ stopCluster(cl)
 names(stage1res) <- metadata$CITY_CODE
 
 #-------------------------
-# Save
+# Extract coefficients and vcovs
 #-------------------------
 
-save.image("data/FirstStage.RData")
+# Get all results in big list
+allresults <- unlist(stage1res, recursive = F)
+
+# Get coefs and vcov
+coefs <- t(sapply(allresults, "[[", "coef"))
+vcovs <- lapply(allresults, "[[", "vcov")
+
+#----- Separate into observed and prediction for the illustration
+
+# Extract observed locations
+coefs_obs <- subset(coefs, stage2df$obs)
+vcovs_obs <- vcovs[stage2df$obs]
+
+# And 'unobserved' locations for later comparison
+coefs_pred <- subset(coefs, !stage2df$obs)
+vcovs_pred <- vcovs[!stage2df$obs]
