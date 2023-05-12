@@ -173,4 +173,4 @@ ggplot(excessplot) + theme_classic() +
   coord_flip()
 
 # Save
-ggsave("figures/Fig8_ExcessComparison.pdf", width = 6)
+ggsave("figures/Fig6_ExcessComparison.pdf", width = 6)

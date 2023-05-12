@@ -84,7 +84,7 @@ loc_sf <- subset(loc_sf, !duplicated(city))
 loc_sf$obs <- factor(loc_sf$obs, labels = c("Unobserved", "Observed"))
 
 # Select spline coefficient to display
-coefdisp <- 5
+coefdisp <- 2
 loc_sf$blupres <- NA
 loc_sf[loc_sf$obs == "Observed", "blupres"] <- cityblup[, coefdisp]
 

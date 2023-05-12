@@ -58,11 +58,15 @@ predERF <- lapply(predcoefs, function(x){
 #-------------------------------
 
 # Indices for highest age-group
-curveind <- with(stage2df, which(agegroup == levels(agegroup)[4] & !obs))
+set.seed(1)
+curveind <- with(stage2df, which(agegroup == levels(agegroup)[4] & !obs)) |>
+  sample(10)
 
 # Palette (depends on latitude)
-latcut <- cut(stage2df[curveind, "lat"], breaks = 10)
-predpal <- mako(10, end = .8)[latcut]
+latitudes <- stage2df[curveind, "lat"]
+latbreaks <- seq(floor(min(latitudes)), ceiling(max(latitudes)), by = 1)
+latcut <- cut(latitudes, breaks = latbreaks)
+predpal <- mako(nlevels(latcut), end = .8)
 
 # Initialize plot, draw grid and custom x-axis
 par(mar = c(5, 4, 4, 7) + .1)
@@ -74,15 +78,18 @@ axis(1, at = ovaxis, labels = axisper)
 
 # Add curves
 for (i in seq_along(curveind)){
-  lines(predERF[[curveind[i]]], ptype = "overall", col = predpal[i], lwd = 2)
+  lines(predERF[[curveind[i]]], ptype = "overall", 
+    col = predpal[latcut[i]], lwd = 2)
 }
 
 # Overlay the RR=1 line
 abline(h = 1)
 
 # Add legend
-legend(x = par("usr")[2], y = par("usr")[4], legend = rev(levels(latcut)),
-  fill = rev(mako(10, end = .8)), bty = "n", xpd = T, title = "Latitude")
+# legend(x = par("usr")[2], y = par("usr")[4], legend = rev(levels(latcut)),
+#   fill = rev(mako(10, end = .8)), bty = "n", xpd = T, title = "Latitude")
+image.plot(legend.only = T, zlim = range(latbreaks), breaks = latbreaks, 
+  col = predpal, legend.lab = "Latitude")
 
 # Save
 dev.print(pdf, file = "figures/Fig5_examplePred.pdf")
@@ -91,65 +98,65 @@ dev.print(pdf, file = "figures/Fig5_examplePred.pdf")
 # Prediction scatterplots
 #-------------------------------
 
-#----- Model with all cities to compare
-
-# Fit model
-fullform <- coefs ~ ns(age, knots = 60) + comps
-refmod <- mixmeta(fullform, random = ranform, data = stage2df, S = vcovs) 
-
-# Extract BLUP
-refcoefs <- blup(refmod, vcov = T)
-
-# BLUP curves
-refERF <- lapply(refcoefs, function(x){
-  uncentred <- mmtbasis %*% x$blup
-  mmt <- mmtper[which.min(uncentred)]
-  crosspred(ovbasis, coef = x$blup, vcov = x$vcov, model.link = "log", 
-    at = ovper, cen = mmt)
-})
-
-#----- Extract prediction at extreme percentiles
-
-# Extract heat and cold for predicted
-predRR <- sapply(predERF, "[[", "allRRfit")[predper %in% c(1, 99),]
-
-# Extract heat and cold for BLUPs
-refRR <- sapply(refERF, "[[", "allRRfit")[predper %in% c(1, 99),]
-
-#----- Plot
-
-# Color palette
-pals <- list(
-  scico(length(agebreaks), direction = -1, end = .8, palette = "devon"),
-  scico(length(agebreaks), direction = 1, begin = .2, palette = "bilbao")
-)
-
-# Labels for percentile
-perlabs <- c("Cold", "Heat")
-
-# Loop on percentiles to display scatterplot
-scatters <- lapply(seq_len(nrow(predRR)), function(i){
-  df <- subset(
-    data.frame(pred = predRR[i,], ref = refRR[i,], age = stage2df$agegroup),
-    !stage2df$obs)
-  
-  ggplot(df) + theme_classic() + 
-    geom_point(aes(x = ref, y = pred, fill = age), size = 3, shape = 21) + 
-    geom_abline(slope = 1, linetype = 2, col = "grey", size = 1) + 
-    scale_fill_manual(values = pals[[i]], guide = guide_legend(
-      title.position = "left", label.position = "bottom"
-    )) + 
-    labs(x = "BLUP from full model", y = "Prediction", fill = "Age group") + 
-    annotate("text", x = -Inf, y = Inf, hjust = -.1, vjust = 1, size = 5,
-      label = sprintf("R2 = %2.0f %%", 
-        summary(lm(pred ~ ref, df))$r.squared * 100)) + 
-    ggtitle(sprintf("%s) %s", letters[i], perlabs[i])) + 
-    lims(x = range(df[,1:2]), y = range(df[1:2])) + 
-    theme(legend.position = "bottom", aspect.ratio = 1)
-})
-
-# Put together
-wrap_plots(scatters, widths = 1)
-
-# Save
-ggsave("figures/Fig6_ObsPred.pdf", width = 10, height = 6.5)
+# #----- Model with all cities to compare
+# 
+# # Fit model
+# fullform <- coefs ~ ns(age, knots = 60) + comps
+# refmod <- mixmeta(fullform, random = ranform, data = stage2df, S = vcovs) 
+# 
+# # Extract BLUP
+# refcoefs <- blup(refmod, vcov = T)
+# 
+# # BLUP curves
+# refERF <- lapply(refcoefs, function(x){
+#   uncentred <- mmtbasis %*% x$blup
+#   mmt <- mmtper[which.min(uncentred)]
+#   crosspred(ovbasis, coef = x$blup, vcov = x$vcov, model.link = "log", 
+#     at = ovper, cen = mmt)
+# })
+# 
+# #----- Extract prediction at extreme percentiles
+# 
+# # Extract heat and cold for predicted
+# predRR <- sapply(predERF, "[[", "allRRfit")[predper %in% c(1, 99),]
+# 
+# # Extract heat and cold for BLUPs
+# refRR <- sapply(refERF, "[[", "allRRfit")[predper %in% c(1, 99),]
+# 
+# #----- Plot
+# 
+# # Color palette
+# pals <- list(
+#   scico(length(agebreaks), direction = -1, end = .8, palette = "devon"),
+#   scico(length(agebreaks), direction = 1, begin = .2, palette = "bilbao")
+# )
+# 
+# # Labels for percentile
+# perlabs <- c("Cold", "Heat")
+# 
+# # Loop on percentiles to display scatterplot
+# scatters <- lapply(seq_len(nrow(predRR)), function(i){
+#   df <- subset(
+#     data.frame(pred = predRR[i,], ref = refRR[i,], age = stage2df$agegroup),
+#     !stage2df$obs)
+#   
+#   ggplot(df) + theme_classic() + 
+#     geom_point(aes(x = ref, y = pred, fill = age), size = 3, shape = 21) + 
+#     geom_abline(slope = 1, linetype = 2, col = "grey", size = 1) + 
+#     scale_fill_manual(values = pals[[i]], guide = guide_legend(
+#       title.position = "left", label.position = "bottom"
+#     )) + 
+#     labs(x = "BLUP from full model", y = "Prediction", fill = "Age group") + 
+#     annotate("text", x = -Inf, y = Inf, hjust = -.1, vjust = 1, size = 5,
+#       label = sprintf("R2 = %2.0f %%", 
+#         summary(lm(pred ~ ref, df))$r.squared * 100)) + 
+#     ggtitle(sprintf("%s) %s", letters[i], perlabs[i])) + 
+#     lims(x = range(df[,1:2]), y = range(df[1:2])) + 
+#     theme(legend.position = "bottom", aspect.ratio = 1)
+# })
+# 
+# # Put together
+# wrap_plots(scatters, widths = 1)
+# 
+# # Save
+# ggsave("figures/Fig6_ObsPred.pdf", width = 10, height = 6.5)

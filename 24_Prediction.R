@@ -90,7 +90,7 @@ dev.print(pdf, file = "figures/Fig2_age.pdf", width = 7, height = 5)
 #------------------
 
 # Parameters on what models to display
-citypred <- "IT002C"
+citypred <- "IT004C"
 agecurve <- agelabs[4]
 
 #----- Prepare ERFs
@@ -136,7 +136,7 @@ firsterf <- crosspred(ovbasis, coef = coefs[ind,], vcov = vcovs[[which(ind)]],
 #----- Plot
 
 # Color palette
-comppal <- mako(length(comp_erf), end = .8)
+comppal <- mako(length(comp_erf), end = .8, alpha = .6)
 
 # Initialize plot, draw grid and custom x-axis
 plot(NA, bty = "l", xaxt = "n", 
@@ -147,13 +147,11 @@ axis(1, at = ovaxis, labels = axisper)
 
 # Add age curves
 for (i in seq_along(comp_erf)){
-  lines(comp_erf[[i]], ptype = "overall", col = comppal[i], ci = "n", 
-    lwd = 2, ci.arg = list(col = adjustcolor(comppal[i], .2)))
+  lines(comp_erf[[i]], ptype = "overall", col = comppal[i], ci = "n", lwd = 2)
 }
 
 # Add first stage curve
-lines(firsterf, ptype = "overall", col = 2, ci = "n", lty = 2, 
-  lwd = 2, ci.arg = list(col = adjustcolor(2, .2)))
+lines(firsterf, ptype = "overall", col = 2, ci = "n", lty = 2, lwd = 3)
 
 # Overlay the RR=1 line
 abline(h = 1)

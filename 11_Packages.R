@@ -15,6 +15,7 @@ library(eurostat) # To download Eurostat datasets
 library(giscoR) # For geographic information in Europe
 library(sf) # GIS functions
 library(doParallel) # To parallelize
+library(doSNOW)
 library(data.table) # Efficient tables and function `between`
 library(dplyr) # data.frame management
 library(raster) # Spatial grid

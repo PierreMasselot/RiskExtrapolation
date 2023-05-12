@@ -198,15 +198,42 @@ alldf <- cbind(rbind(cidfnew, cidfold), type = rep(c("new", "old"), each = 15))
 alldf <- merge(alldf, estdf)
 
 # Plot
+# ggplot(simdf) + theme_classic() + 
+#   stat_gradientinterval(aes(x = geozone, y = total, fill = type), 
+#     position = position_dodge(width = .9), point_colour = NA, .width = .95) + 
+#   scale_fill_scico_d(palette = "cork", name = "Sampling", direction = -1,
+#     labels = c(new = "Meta-regression", old = "Predictions")) + 
+#   geom_point(aes(x = geozone, y = est, group = type), 
+#     data = subset(alldf, variable == "total"), size = 4,
+#     position = position_dodge2(width = .9)) + 
+#   labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
+
 ggplot(simdf) + theme_classic() + 
-  stat_gradientinterval(aes(x = geozone, y = total, fill = type), 
-    position = position_dodge(width = .9), point_colour = NA, .width = .95) + 
-  scale_fill_scico_d(palette = "cork", name = "Sampling", direction = -1,
-    labels = c(new = "Meta-regression", old = "Predictions")) + 
+  stat_interval(aes(x = geozone, y = total, color = type, 
+    color_ramp = after_stat(level)), 
+    position = position_dodge(width = .5), point_colour = NA, 
+    .width = c(.5, .8, .95, 1)) + 
+  scale_color_scico_d(palette = "cork", name = "Sampling", direction = -1,
+    labels = c(new = "Meta-regression", old = "Predictions")) +
   geom_point(aes(x = geozone, y = est, group = type), 
-    data = subset(alldf, variable == "total"), size = 4,
-    position = position_dodge2(width = .9)) + 
-  labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
+    data = subset(alldf, variable == "total"), size = 5,
+    position = position_dodge2(width = .5)) + 
+  labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)",
+    color_ramp = "Level")
+
+# ggplot(simdf) + theme_classic() + 
+#   geom_half_violin(aes(x = geozone, y = total, split = type, fill = type),
+#     position = "identity", alpha = .5, draw_quantiles = c(.05, .95)) + 
+#   scale_fill_viridis(begin = .2, end = .7, option = "G", discrete = T,
+#     name = "Sampling", 
+#     labels = c(new = "Meta-regression", old = "Predictions")) + 
+#   geom_point(aes(x = geozone, y = est, group = type), 
+#     data = subset(alldf, variable == "total"), size = 4) + 
+#   # geom_errorbar(
+#   #   aes(x = geozone, ymin = low, ymax = high, group = type),
+#   #   data = subset(alldf, variable == "total"), size = 1, width = .2,
+#   #   position = position_dodge(width = .4)) + 
+#   labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
 
 # Save
-ggsave("figures/Fig9_IntervalsComparison.png")
+ggsave("figures/Fig7_IntervalsComparison.pdf")
