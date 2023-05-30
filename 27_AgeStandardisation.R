@@ -1,7 +1,8 @@
 ################################################################################
 #
-#   New extensions
-#   5. Standardized impacts
+#  RiskExtrapolation
+#
+#  Standardisation of impacts
 #
 ################################################################################
 
@@ -118,7 +119,7 @@ totexcessrate <- cityageres |> group_by(city) |>
 # Plots
 ####################################
 
-# Select cities to display
+# Select cities to display based in demographic structure
 citysel <- cityageres |> subset(agegroup == "85+") |>
   subset(rank(popprop, ties.method = "first") %in% 
       round(seq(1, n, length.out = 5)) & !duplicated(popprop), 

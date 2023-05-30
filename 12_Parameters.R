@@ -49,7 +49,7 @@ metaprednames <- c(Population = "pop", 'Population above 65' = "prop_65p",
   'PM2.5' = "pm25", NO2 = "no2", 'Average temperature' = "tmean", 
   'Temperature range' = "trange")
 
-# Number of composite vulnerability incides
+# Number of composite vulnerability indices
 npc <- 5
 
 # Number of simulations for eCI

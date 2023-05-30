@@ -1,7 +1,8 @@
 ################################################################################
 #
-#   New extensions
-#   4. Creation of fixed effect predictive model
+#  RiskExtrapolation
+#
+#  Predictive meta-regression model
 #
 ################################################################################
 
@@ -21,8 +22,7 @@ pcs <- comps_obs[,1:npc]
 ranform <- ~ 1|city
 
 # Fit model
-stage2res <- mixmeta(fixform, random = ranform, 
-  data = stage2_obs, S = vcovs_obs) 
+stage2res <- mixmeta(fixform, random = ranform, data = stage2_obs, S = vcovs_obs) 
 
 
 ####################################
@@ -38,15 +38,15 @@ stage2res <- mixmeta(fixform, random = ranform,
 # Create prediction data.frame
 agedf <- list(age = agebreaks[-1], pcs = matrix(0, length(agebreaks) - 1, npc))
 
-# Predict coefficients
+# Predict coefficients by age
 agepreds <- predict(stage2res, agedf, vcov = T)
 
-# Determine common MMT
+# Determine common MMT by age
 uncentred <- mmtbasis %*% sapply(agepreds, "[[", "fit")
 mmts <- mmtper[apply(uncentred, 2, which.min)]
 mmt <- median(mmts)
 
-# Construct centred ERFs
+# Construct centred ERFs by age
 ageERF <- lapply(agepreds, function(x){
   crosspred(ovbasis, coef = x$fit, vcov = x$vcov, model.link = "log", 
     at = ovper, cen = mmt)
@@ -89,7 +89,7 @@ dev.print(pdf, file = "figures/Fig2_age.pdf", width = 7, height = 5)
 # Evolution of curve for a city
 #------------------
 
-# Parameters on what models to display
+# Parameters on what city/age group combination to display
 citypred <- "IT004C"
 agecurve <- agelabs[4]
 
@@ -110,8 +110,7 @@ comp_pred <- foreach(k = 0:npc) %do% {
   }
   
   # Fit model
-  fit <- mixmeta(kform, random = ranform, 
-    data = stage2_obs, S = vcovs_obs) 
+  fit <- mixmeta(kform, random = ranform, data = stage2_obs, S = vcovs_obs) 
   
   # Predict for one city
   newdata <- list(age = stage2df$age[ind], 

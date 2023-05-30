@@ -1,7 +1,8 @@
 ################################################################################
 #
-#   New extensions
-#   6. Predictions at all locations, including unobserved
+#  RiskExtrapolation
+#
+#  Extrapolation to unobserved locations
 #
 ################################################################################
 
@@ -37,7 +38,7 @@ names(ranpred) <- unique(stage2df$city)
 
 #----- Create curves
 
-# Add to fixed and random effect predictions
+# Add fixed and random effect predictions
 predcoefs <- Map(function(fix, ran) Map(`+`, fix, ran),
   fixpred, ranpred)
 

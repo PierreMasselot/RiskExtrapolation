@@ -1,7 +1,8 @@
 ################################################################################
 #
-#   New extensions
-#   5. Spatialization of random effects
+#  RiskExtrapolation
+#
+#  Spatialisation of risk
 #
 ################################################################################
 
@@ -12,7 +13,7 @@
 # Extract random effect
 blupext <- blup(stage2res, type = "residual")
 
-# Remove duplicates
+# Remove duplicates (same for all age groups within location)
 dups <- duplicated(blupext)
 cityblup <- blupext[!dups,]
 
@@ -47,8 +48,8 @@ variopars <- list(
 
 # Estimate variogram model
 varmod <- do.call(vgm, variopars)
-spatmod <- fit.lmc(vario, cokrig, varmod,
-  fit.method = 6, correct.diagonal = 1.01)
+spatmod <- fit.lmc(vario, cokrig, varmod, fit.method = 6, 
+  correct.diagonal = 1.01)
 
 
 ####################################
@@ -85,6 +86,8 @@ loc_sf$obs <- factor(loc_sf$obs, labels = c("Unobserved", "Observed"))
 
 # Select spline coefficient to display
 coefdisp <- 2
+
+# Include blups for observed cities
 loc_sf$blupres <- NA
 loc_sf[loc_sf$obs == "Observed", "blupres"] <- cityblup[, coefdisp]
 
