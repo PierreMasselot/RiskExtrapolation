@@ -17,8 +17,8 @@ year <- 2011:2021
 
 # Age groups
 agebreaks <- c(0, 45, 65, 75, 85)
-agelabs <- c(paste(agebreaks[-length(agebreaks)], agebreaks[-1], sep = "-"), 
-  sprintf("%i+", agebreaks[length(agebreaks)]))
+agelabs <- c(paste(sprintf("%02i", agebreaks[-length(agebreaks)]), 
+  agebreaks[-1], sep = ""), sprintf("%i+", agebreaks[length(agebreaks)]))
 
 #----- First-stage analysis
 

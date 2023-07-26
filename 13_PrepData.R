@@ -10,36 +10,45 @@
 # Read time series data
 #---------------------------
 
-#----- Read
+#----- Mortality
 
-# File to read
-ita_file <- "italy_cities_2022-10-07.RData"
+# Read mortality data
+mortdata <- fread("data/mortality.csv.gz")
+
+# Aggregate age groups
+mortdata[, agegroup := cut(
+  as.numeric(gsub("0+", "Inf", substr(agegroup, 3, 4), fixed = T)), 
+  c(agebreaks, Inf), include.lowest = T, labels = agelabs)]
+mortdata <- mortdata[, .(all = sum(all)), by = .(CITY_CODE, date, agegroup)]
+
+# Cast age groups as wide
+fulldata <- dcast.data.table(mortdata, CITY_CODE + date ~ agegroup, 
+  value.var = "all")
+
+# Rename
+setnames(fulldata, agelabs, sprintf("all_%s", agelabs))
+
+#----- Read temperature series
 
 # Read
-load(paste0("data/", ita_file))
+tempdata <- fread("data/tmean.csv.gz")
 
-#----- Aggregate age groups
+# Merge to mortality data
+fulldata <- merge(fulldata, tempdata, by.x = c("CITY_CODE", "date"), 
+  by.y = c("URAU_CODE", "date"))
 
-dlist <- lapply(dlist, function(d){
-  
-  # Get indices and age groups
-  mort_vars <- grep("all_[[:digit:]]", names(d), value = T)
-  agemax <- suppressWarnings(as.numeric(substr(mort_vars, 7, 8)))
-  agemax[length(agemax)] <- Inf
-  
-  # Cut as groups
-  agegrps <- cut(agemax, c(agebreaks, Inf), agelabs, include.lowest = T,
-    right = F)
-  
-  # Aggregate
-  dagg <- tapply(as.list(d[mort_vars]), agegrps, function(x) Reduce("+", x))
-  dagg <- do.call(data.frame, dagg)
-  names(dagg) <- sprintf("all_%s", agelabs)
-  
-  # put in original df
-  d[mort_vars] <- NULL
-  cbind(d, dagg)
-})
+
+#----- List of city-level data
+
+# Order
+setkey(fulldata, CITY_CODE, date)
+
+# Create date-related variables
+fulldata[, ":="(year = year(date), dow = weekdays(date))]
+
+# Split
+dlist <- split(fulldata[,!"CITY_CODE"], fulldata$CITY_CODE)
+dlist <- lapply(dlist, as.data.frame)
 
 #---------------------------
 # Read Metadata
@@ -47,22 +56,8 @@ dlist <- lapply(dlist, function(d){
 
 #----- Load data from EUcityTRM
 
-# File 
-metafile <- "metadata.csv"
-
-# Download from Zenodo
-if (!file.exists(paste0("data/", metafile))){
-  download_zenodo("10.5281/zenodo.7672108", path = "data",
-    files = list("metadata.csv"))
-}
-
-# Load and select Italian cities
-metadata <- read.csv("data/metadata.csv")
-
-# Select italian cities
-metadata <- merge(cities, dplyr::select(metadata, !c(CNTR_CODE, URAU_NAME, lon, 
-  lat, region, LABEL, cntr_name, nmiss, mcc_code, cityname, country, inmcc)), 
-  by.x = "CITY_CODE", by.y = "URAU_CODE")
+# Load 
+metadata <- read.csv("data/metadata.csv.gz")
 
 #----- Prepare data for the second-stage
 
@@ -76,7 +71,7 @@ stage2df <- expand.grid(agegroup = agelabs, city = metadata$CITY_CODE)
 
 # Add name, and geographical information
 stage2df <- merge(stage2df, 
-  metadata[, c("CITY_CODE" ,"CITY_NAME", "geozone","lon", "lat", "obs")], 
+  metadata[, c("CITY_CODE" ,"CITY_NAME", "geozone", "lon", "lat", "obs")], 
   by.x = "city", by.y = "CITY_CODE")
 
 # Separate data.frame
@@ -87,8 +82,8 @@ stage2_pred <- subset(stage2df, !obs)
 # Additional data for results
 #---------------------------
 
-# Extract map of Italy
-italymap <- gisco_get_countries(year = "2020", epsg = "4326", country = "IT")
+# Read map of Italy
+italymap <- st_read("data/italymap.shp")
 
 #----- Common basis to represent curves
 

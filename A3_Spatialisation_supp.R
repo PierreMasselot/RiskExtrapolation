@@ -1,13 +1,30 @@
 ################################################################################
 #
 #  Appendix 3.
-#  Alternative ways to extrapolate random effects
+#  Spatialisation details
 #
 ################################################################################
 
-# Need the cityblup and blupgeo objects created
+# Run after the 25_Spatialisation.R script
 
-#----- Inverse distance weighting
+#------------------
+# Display variogram
+#------------------
+
+# Description of parameters
+
+
+# Plot
+plot(vario, spatmod)
+
+# Save
+dev.print(pdf, "figures/FigS2_variogram.pdf")
+
+
+#------------------
+# Inverse distance weighting
+# Replaces lines 23-48 in 25_Spatialisation.R
+#------------------
 
 # Power parameter for IDW
 idpgrid <- seq(.5, 2, by = .1)
@@ -19,8 +36,8 @@ for (i in 1:nc) {
   # Specify model
   idwlist <- lapply(idpgrid, function(idp){
     gstat(spatmod, id = sprintf("b%i", i), 
-      formula = as.formula(sprintf("b%i ~ 1", i)), 
-      data = blupgeo, set = list(idp = idp))
+      formula = as.formula(sprintf("b%i ~ 1", i)), locations = ~ lon + lat,
+      data = blupres, set = list(idp = idp))
   })
   
   # Estimate prediction error by CV

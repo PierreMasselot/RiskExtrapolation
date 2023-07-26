@@ -49,8 +49,9 @@ isp <- aggregate(popprop ~ agegroup, cityageres, mean)$popprop
 #----- Compute attributable fractions
 
 # Loop on city ages
-aflist <- foreach(pred = predcoefs, dat = dlist[cityageres$city],
-  .combine = rbind) %do% {
+aflist <- foreach(pred = predcoefs, dat = dlist[cityageres$city], 
+  .combine = rbind) %do% 
+{
   
   # Estimate MMT
   bvar <- onebasis(dat$tmean, fun = varfun, degree = vardegree, 
@@ -66,13 +67,13 @@ aflist <- foreach(pred = predcoefs, dat = dlist[cityageres$city],
     Boundary.knots = range(dat$tmean))
   bvarcen <- scale(bvar, center = cenvec, scale = F)
   
-  # Compute daily AF and AN
+  # Compute daily AF
   afday <- (1 - exp(-bvarcen %*% pred$fit))
   
   # Indicator of heat days
   heatind <- dat$tmean >= immt
   
-  # Sum all and return
+  # Sum all and return, including the MMT
   c(total = sum(afday), cold = sum(afday[!heatind]), heat = sum(afday[heatind]))
 }
 
@@ -137,12 +138,13 @@ demoplot <- subset(demodf, CITY_CODE %in% citysel) |>
 
 # Plot
 ggplot(demoplot) + theme_classic() + 
-  geom_smooth(aes(x = agemin, y = prop / 5, col = city), size = 2, se = F) + 
+  geom_smooth(aes(x = agemin, y = prop / 5, col = city), 
+    linewidth = 2, se = F) + 
   scale_colour_viridis(option = "mako", end = .9, name = "", discrete = T) + 
   labs(x = "Age", y = "Population percentage (%)")
 
 # Save
-ggsave("figures/Fig7_popStructure.pdf", width = 7, height = 5)
+ggsave("figures/Fig6a_popStructure.pdf", width = 7, height = 5)
 
 #----- Compare standardised and non-standardised
 
@@ -163,7 +165,7 @@ names(pal) <- c("tot", "std")
 # Plot
 ggplot(excessplot) + theme_classic() + 
   geom_col(aes(x = city, y = heat, fill = type), 
-    position = "dodge", width = .7, size = 2) + 
+    position = "dodge", width = .7) + 
   scale_x_discrete(breaks = citysel,
     labels = with(metadata, CITY_NAME[match(citysel, CITY_CODE)])) + 
   scale_y_continuous(expand = c(0, 0)) + 
@@ -174,4 +176,4 @@ ggplot(excessplot) + theme_classic() +
   coord_flip()
 
 # Save
-ggsave("figures/Fig6_ExcessComparison.pdf", width = 6)
+ggsave("figures/Fig6b_ExcessComparison.pdf", width = 6)

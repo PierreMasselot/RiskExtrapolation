@@ -18,12 +18,13 @@ library(doParallel) # To parallelize
 library(doSNOW)
 library(data.table) # Efficient tables and function `between`
 library(dplyr) # data.frame management
-library(raster) # Spatial grid
+library(terra) # For rasters
 library(PHEindicatormethods) # Includes standard European population
 library(Matrix) # For nearPD function
 library(reshape2) # For long-to-wide
 library(tidyr)
 library(zen4R) # To download data from Zenodo
+library(R.utils) # To read gz files
 
 #----- Analysis
 library(dlnm) # Functions to perform DLNM on first stage
@@ -42,3 +43,5 @@ library(scico)
 library(patchwork)
 library(ggdist)
 library(fields)
+library(tidyterra)
+library(ggnewscale) # To have several fill scales on the same plot

@@ -1,12 +1,12 @@
 ################################################################################
 #
-#  Appendix 1.
+#  Appendix 3.
 #  Alternative ways to construct composite indices of vulnerability
 #
 ################################################################################
 
 # Needs the metapred and metapred_obs object created
-# Replace the "Compute PLS" part of the code in 23 by the code below
+# Replace the "Compute PLS" (lines 20-30) part of the code in 23_Vulnerability.R
 
 #---------------------
 # PCA

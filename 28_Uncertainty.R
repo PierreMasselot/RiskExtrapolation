@@ -35,34 +35,35 @@ coefsim <- fixsim + ransim
 coefsim <- aperm(array(c(coefsim), dim = c(nc, na, nsim)), c(2, 1, 3))
 
 #----- Apply attribution to all simulated
+# NB: Can be combined with the computation in script 27 
+#   for computational efficiency
 
-afsim <- foreach(sim = iapply(coefsim, 1), dat = dlist[cityageres$city]) %do% {
+afsim <- foreach(pred = predcoefs, sim = iapply(coefsim, 1), 
+  dat = dlist[cityageres$city]) %do% 
+{
     
-    # Estimate MMT
+    # Compute centred basis
     bvar <- onebasis(dat$tmean, fun = varfun, degree = vardegree, 
       knots = quantile(dat$tmean, varper / 100))
-    erf <- bvar %*% sim
+    erf <- bvar %*% pred$fit
     inrange <- between(dat$tmean, quantile(dat$tmean, mmprange[1] / 100), 
       quantile(dat$tmean, mmprange[2] / 100))
-    immt <- dat$tmean[inrange][apply(erf[inrange,], 2, which.min)]
-    
-    # Centre basis
-    cenmat <- onebasis(immt, fun = varfun, degree = vardegree, 
+    immt <- dat$tmean[inrange][which.min(erf[inrange])]
+    cenvec <- onebasis(immt, fun = varfun, degree = vardegree, 
       knots = quantile(dat$tmean, varper / 100), 
       Boundary.knots = range(dat$tmean))
+    bvarcen <- scale(bvar, center = cenvec, scale = F)
     
     # Compute daily AF and AN
-    afdaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
-        scale = F) %*% coef)),
-      as.data.frame(t(cenmat)), as.data.frame(sim))
+    afdaysim <- bvarcen %*% sim
     
     # Indicator of heat days
-    heatindsim <- outer(dat$tmean, immt, ">=")
+    heatind <- dat$tmean >= immt
     
     # Sum all and return
     cbind(total = colSums(afdaysim), 
-      cold = colSums(afdaysim * (!heatindsim)), 
-      heat = colSums(afdaysim * heatindsim))
+      cold = colSums(afdaysim[!heatind,]), 
+      heat = colSums(afdaysim[heatind,]))
   }
 
 #----- Compute death rates for each simulation
@@ -98,11 +99,11 @@ anregion <- tapply(ansim, cityageres[, c("agegroup", "geozone")],
   Reduce, f = "+")
 
 # Compute excess death rates
-popcountry <- aggregate(agepop ~ agegroup + geozone, data = cityageres, sum)
-excess_region <- Map("/", anregion, popcountry$agepop / byrate)
+popregion <- aggregate(agepop ~ agegroup + geozone, data = cityageres, sum)
+excess_region <- Map("/", anregion, popregion$agepop / byrate)
 
 # Compute standardized excess death rates
-stdexcess_sim_region <- tapply(excess_region, popcountry$geozone, 
+stdexcess_sim_region <- tapply(excess_region, popregion$geozone, 
   function(x) Reduce("+", Map("*", x, isp)) / sum(isp)
 )
 
@@ -123,31 +124,28 @@ afsim_old <- foreach(ifix = fixpred, iran = ranpred,
   ransim <- mvrnorm(nsim, iran$fit, nearPD(iran$vcov)$mat)
   sim <- fixsim + ransim
 
-  # Estimate MMT
+  # Compute centred basis
   bvar <- onebasis(dat$tmean, fun = varfun, degree = vardegree, 
     knots = quantile(dat$tmean, varper / 100))
-  erf <- bvar %*% t(sim)
+  erf <- bvar %*% (ifix$fit + iran$fit)
   inrange <- between(dat$tmean, quantile(dat$tmean, mmprange[1] / 100), 
     quantile(dat$tmean, mmprange[2] / 100))
-  immt <- dat$tmean[inrange][apply(erf[inrange,], 2, which.min)]
-  
-  # Centre basis
-  cenmat <- onebasis(immt, fun = varfun, degree = vardegree, 
+  immt <- dat$tmean[inrange][which.min(erf[inrange])]
+  cenvec <- onebasis(immt, fun = varfun, degree = vardegree, 
     knots = quantile(dat$tmean, varper / 100), 
     Boundary.knots = range(dat$tmean))
+  bvarcen <- scale(bvar, center = cenvec, scale = F)
   
   # Compute daily AF and AN
-  afdaysim <- mapply(function(cen, coef) (1 - exp(-scale(bvar, center = cen, 
-    scale = F) %*% coef)),
-    as.data.frame(t(cenmat)), as.data.frame(t(sim)))
+  afdaysim <- bvarcen %*% t(sim)
   
   # Indicator of heat days
-  heatindsim <- outer(dat$tmean, immt, ">=")
+  heatind <- dat$tmean >= immt
   
   # Sum all and return
   cbind(total = colSums(afdaysim), 
-    cold = colSums(afdaysim * (!heatindsim)), 
-    heat = colSums(afdaysim * heatindsim))
+    cold = colSums(afdaysim[!heatind,]), 
+    heat = colSums(afdaysim[heatind,]))
 }
 
 #----- Compute region level death rates
@@ -160,11 +158,11 @@ anregion_old <- tapply(ansim_old, cityageres[, c("agegroup", "geozone")],
   Reduce, f = "+", simplify = F)
 
 # Compute excess death rates
-popcountry <- aggregate(agepop ~ agegroup + geozone, data = cityageres, sum)
-excess_region_old <- Map("/", anregion_old, popcountry$agepop / byrate)
+popregion <- aggregate(agepop ~ agegroup + geozone, data = cityageres, sum)
+excess_region_old <- Map("/", anregion_old, popregion$agepop / byrate)
 
 # Compute standardized excess death rates
-stdexcess_region_sim_old <- tapply(excess_region_old, popcountry$geozone, 
+stdexcess_region_sim_old <- tapply(excess_region_old, popregion$geozone, 
   function(x) Reduce("+", Map("*", x, isp)) / sum(isp)
 )
 
@@ -176,6 +174,30 @@ dimnames(stdexcessCI_region_old)[[1]] <- c("low", "high")
 #----------------------------
 # Plots
 #----------------------------
+
+#----- Summarise heterogeneity of regions
+
+# Regional averages of coefficients
+region_coefs <- sapply(predcoefs, function(x) solve(x$vcov) %*% x$fit) |> 
+  t() |> as.data.frame() |>
+  by(stage2df$geozone, colMeans)
+
+# Compute average mahalanobis distance
+het_coefs <- foreach(average = region_coefs, 
+  rcoefs = split(predcoefs, stage2df$geozone), .combine = c, 
+  .final = function(x) "names<-"(x, names(region_coefs))) %:% 
+  foreach(rc = rcoefs, .combine = c, .final = mean) %do% 
+{
+  dc <- rc$fit - average  
+  sqrt(t(dc) %*% solve(rc$vcov) %*% dc)
+}
+
+# Compute number of cities
+hetdf <- group_by(cityageres, geozone) |>
+  summarise(ncity = length(unique(city)))
+
+# Add heterogeneity
+hetdf$het <- het_coefs
 
 #----- Gradient interval for the distribution of std excess at regional level
 
@@ -199,16 +221,6 @@ alldf <- cbind(rbind(cidfnew, cidfold), type = rep(c("new", "old"), each = 15))
 alldf <- merge(alldf, estdf)
 
 # Plot
-# ggplot(simdf) + theme_classic() + 
-#   stat_gradientinterval(aes(x = geozone, y = total, fill = type), 
-#     position = position_dodge(width = .9), point_colour = NA, .width = .95) + 
-#   scale_fill_scico_d(palette = "cork", name = "Sampling", direction = -1,
-#     labels = c(new = "Meta-regression", old = "Predictions")) + 
-#   geom_point(aes(x = geozone, y = est, group = type), 
-#     data = subset(alldf, variable == "total"), size = 4,
-#     position = position_dodge2(width = .9)) + 
-#   labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
-
 ggplot(simdf) + theme_classic() + 
   stat_interval(aes(x = geozone, y = total, color = type, 
     color_ramp = after_stat(level)), 
@@ -219,22 +231,10 @@ ggplot(simdf) + theme_classic() +
   geom_point(aes(x = geozone, y = est, group = type), 
     data = subset(alldf, variable == "total"), size = 5,
     position = position_dodge2(width = .5)) + 
+  geom_label(aes(x = geozone, label = sprintf("%i cities \n Q: %2.0f", ncity, het)), 
+    y = max(simdf$total), data = hetdf, vjust = .5, label.size = 0) + 
   labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)",
     color_ramp = "Level")
-
-# ggplot(simdf) + theme_classic() + 
-#   geom_half_violin(aes(x = geozone, y = total, split = type, fill = type),
-#     position = "identity", alpha = .5, draw_quantiles = c(.05, .95)) + 
-#   scale_fill_viridis(begin = .2, end = .7, option = "G", discrete = T,
-#     name = "Sampling", 
-#     labels = c(new = "Meta-regression", old = "Predictions")) + 
-#   geom_point(aes(x = geozone, y = est, group = type), 
-#     data = subset(alldf, variable == "total"), size = 4) + 
-#   # geom_errorbar(
-#   #   aes(x = geozone, ymin = low, ymax = high, group = type),
-#   #   data = subset(alldf, variable == "total"), size = 1, width = .2,
-#   #   position = position_dodge(width = .4)) + 
-#   labs(x = "Region", y = "Standardized excess mortality rates (x 100,000)")
 
 # Save
 ggsave("figures/Fig7_IntervalsComparison.pdf")

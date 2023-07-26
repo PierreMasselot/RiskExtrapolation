@@ -76,7 +76,7 @@ plotdf <- cbind(modgrid, deltaAIC = aiclist - min(aiclist))
 # Plot
 ggplot(plotdf, aes(x = ncomp, y = deltaAIC, group = agemod, col = agemod)) + 
   theme_classic() + 
-  geom_line(size = 1) + geom_point(shape = 16, size = 2) + 
+  geom_line(linewidth = 1) + geom_point(shape = 16, size = 2) + 
   scale_color_manual(values = pal, labels = names(compared), 
     name = "Age model") + 
   scale_x_continuous(name = "Number of components", breaks = 1:maxk) + 
@@ -84,5 +84,5 @@ ggplot(plotdf, aes(x = ncomp, y = deltaAIC, group = agemod, col = agemod)) +
   geom_hline(yintercept = c(0, 2, 5, 10), linetype = c(1, 2, 2, 2))
 
 # Save
-ggsave("figures/FigA_npcSelect.pdf")
+dev.print(cairo_pdf, "figures/FigS1_npcSelect.pdf")
 
