@@ -10,35 +10,13 @@
 # Read time series data
 #---------------------------
 
-#----- Mortality
-
 # Read mortality data
 mortdata <- fread("data/mortality.csv.gz")
 
-# Aggregate age groups
-mortdata[, agegroup := cut(
-  as.numeric(gsub("0+", "Inf", substr(agegroup, 3, 4), fixed = T)), 
-  c(agebreaks, Inf), include.lowest = T, labels = agelabs)]
-mortdata <- mortdata[, .(all = sum(all)), by = .(CITY_CODE, date, agegroup)]
-
-# Cast age groups as wide
-fulldata <- dcast.data.table(mortdata, CITY_CODE + date ~ agegroup, 
-  value.var = "all")
-
-# Rename
-setnames(fulldata, agelabs, sprintf("all_%s", agelabs))
-
-#----- Read temperature series
-
-# Read
+# Read temperature series and merge
 tempdata <- fread("data/tmean.csv.gz")
-
-# Merge to mortality data
-fulldata <- merge(fulldata, tempdata, by.x = c("CITY_CODE", "date"), 
+fulldata <- merge(mortdata, tempdata, by.x = c("CITY_CODE", "date"), 
   by.y = c("URAU_CODE", "date"))
-
-
-#----- List of city-level data
 
 # Order
 setkey(fulldata, CITY_CODE, date)
@@ -54,12 +32,8 @@ dlist <- lapply(dlist, as.data.frame)
 # Read Metadata
 #---------------------------
 
-#----- Load data from EUcityTRM
-
-# Load 
+# Load data from EUcityTRM
 metadata <- read.csv("data/metadata.csv.gz")
-
-#----- Prepare data for the second-stage
 
 # Draw observed cities for the first stage
 set.seed(1)
@@ -67,6 +41,8 @@ obs <- sample.int(nrow(metadata), nobs)
 metadata$obs <- seq_len(nrow(metadata)) %in% obs
 
 # Create all city-age combinations
+agelabs <- grep("all_[[:digit:]]", names(fulldata), value = T) |> 
+  gsub(pattern = "all_", replacement = "")
 stage2df <- expand.grid(agegroup = agelabs, city = metadata$CITY_CODE)
 
 # Add name, and geographical information
@@ -103,7 +79,7 @@ ovaxis <- ovper[predper %in% axisper]
 mmtbasis <- ovbasis[between(predper, mmprange[1], mmprange[2]),]
 mmtper <- ovper[between(predper, mmprange[1], mmprange[2])]
 
-#----- Dimensions
+#----- Useful objects
 
 # Number of spline coefficients
 nc <- length(varper) + 2

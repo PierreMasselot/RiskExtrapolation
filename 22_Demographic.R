@@ -28,6 +28,7 @@ arange <- amax - amin
 
 # Compute average age of death inside each group
 # Mean of ages weighted by their specific death rates
+agebreaks <- substr(agelabs, 1, 2) |> as.numeric()
 groups <- cut(amax, agebreaks)
 deathages <- tapply(seq_along(deathrates), groups, function(ind){
   data.matrix(deathrates[,ind]) %*% (amean[ind] * arange[ind]) / 

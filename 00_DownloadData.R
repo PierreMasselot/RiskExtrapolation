@@ -11,6 +11,9 @@ library(zip)
 library(data.table)
 library(readxl)
 library(zen4R)
+library(dplyr)
+library(giscoR)
+library(sf)
 
 #----- Some parameters
 
@@ -19,9 +22,12 @@ dstart <- as.Date("2011-01-01")
 dend <- as.Date("2021-12-31")
 
 # Age group limits in the Italian dataset
-agebreaks <- c(1, seq(5, 100, by = 5))
-agelabs <- paste(sprintf("%02i", c(0, agebreaks)), 
-  c(sprintf("%02i", agebreaks - 1), "+"), sep = "")
+origagebreaks <- c(1, seq(5, 100, by = 5))
+
+# Target age groups (for the analysis)
+agebreaks <- c(0, 45, 65, 75, 85)
+agelabs <- c(paste(sprintf("%02i", agebreaks[-length(agebreaks)]), 
+  agebreaks[-1], sep = ""), sprintf("%i+", agebreaks[length(agebreaks)]))
 
 #------------------------
 # Download mortality data
@@ -100,12 +106,30 @@ fulldata <- merge(fullfactor, datatab,
 # Fill NAs
 fulldata[, all := nafill(all, fill = 0)]
 
-# Renaming age groups, cleaning date related variables
-fulldata[, ":="(agegroup = agelabs[agegroup + 1], GE = NULL, 
-  year = NULL, month = NULL, day = NULL)]
+# Clean date related variables
+fulldata[, ":="(year = NULL, month = NULL, day = NULL, GE = NULL)]
 
-# Save
-fwrite(fulldata, "data/mortality.csv.gz", quote = F, compress = "gzip")
+# Aggregate age-groups
+fulldata[, agegroup := cut(c(0, origagebreaks)[agegroup + 1], c(agebreaks, Inf), 
+  right = F, labels = agelabs)]
+fulldata <- fulldata[, .(all = sum(all)), by = .(CITY_CODE, date, agegroup)]
+
+# Transform age groups as wide
+fulldata <- dcast.data.table(fulldata, CITY_CODE + date ~ agegroup, 
+  value.var = "all")
+
+# Rename
+setnames(fulldata, agelabs, sprintf("all_%s", agelabs))
+
+#----- Save
+
+# Name
+fname <- "data/mortality.csv.gz"
+
+# Save only if not found
+if (!file.exists(fname)){
+  fwrite(fulldata, fname, quote = F, compress = "gzip")
+}
 
 #------------------------
 # Download metadata for Italy
@@ -119,6 +143,7 @@ download_zenodo("10.5281/zenodo.7672108", path = "data",
 
 # Read metadata
 metadata <- read.csv("data/metadata.csv")
+unlink("data/metadata.csv")
 
 # Select only Italy
 metadata <- subset(metadata, CNTR_CODE == "IT", -c(CNTR_CODE, cntr_name, region, 
@@ -151,8 +176,10 @@ geoinfo <- mutate(geoinfo, `LAU CODE` = sprintf("%06d",
 metadata <- merge(metadata, geoinfo, by.x = "CITY_CODE", by.y = "CITY_ID")
 
 # Write metadata
-fwrite(metadata, "data/metadata.csv.gz", quote = F, compress = "gzip")
-unlink("data/metadata.csv")
+fname <- "data/metadata.csv.gz"
+if (!file.exists(fname)){
+  fwrite(metadata, fname, quote = F, compress = "gzip")
+}
 
 #----- Geographical data
 
@@ -160,4 +187,7 @@ unlink("data/metadata.csv")
 italymap <- gisco_get_countries(year = "2020", epsg = "4326", country = "IT")
 
 # Save shapefile
-st_write(italymap, "data/italymap.shp")
+fname <- "data/italymap.shp"
+if (!file.exists(fname)){
+  st_write(italymap, fname)
+}

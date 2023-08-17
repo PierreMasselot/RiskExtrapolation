@@ -123,5 +123,3 @@ wrap_plots(ggpred, ggvar, guides = "collect")
 
 # Save
 ggsave("figures/Fig4_extrapol_maps.pdf")
-
-

@@ -10,7 +10,7 @@
 #----- Parameters
 
 # Maximum number of components to try
-maxk <- 10
+maxk <- 8
 
 # List of models for age
 compared <- c(

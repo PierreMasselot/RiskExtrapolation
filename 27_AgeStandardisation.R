@@ -137,14 +137,12 @@ demoplot <- subset(demodf, CITY_CODE %in% citysel) |>
     city = reorder(CITY_CODE, prop, tail, 1))
 
 # Plot
-ggplot(demoplot) + theme_classic() + 
+figa <- ggplot(demoplot) + theme_classic() + 
   geom_smooth(aes(x = agemin, y = prop / 5, col = city), 
     linewidth = 2, se = F) + 
   scale_colour_viridis(option = "mako", end = .9, name = "", discrete = T) + 
-  labs(x = "Age", y = "Population percentage (%)")
-
-# Save
-ggsave("figures/Fig6a_popStructure.pdf", width = 7, height = 5)
+  labs(x = "Age", y = "Population percentage (%)", title = "A") + 
+  theme(legend.position = "top")
 
 #----- Compare standardised and non-standardised
 
@@ -163,7 +161,7 @@ pal <- mako(2, begin = .2, end = .7)
 names(pal) <- c("tot", "std")
 
 # Plot
-ggplot(excessplot) + theme_classic() + 
+figb <- ggplot(excessplot) + theme_classic() + 
   geom_col(aes(x = city, y = heat, fill = type), 
     position = "dodge", width = .7) + 
   scale_x_discrete(breaks = citysel,
@@ -171,9 +169,15 @@ ggplot(excessplot) + theme_classic() +
   scale_y_continuous(expand = c(0, 0)) + 
   scale_fill_manual(values = pal, name = "", 
     labels = c(std = "Standardised", tot = "Non-standardised")) +
-  labs(y = "Excess motality rate (x 100,000)", x = "") + 
-  theme(panel.grid.major.x = element_line(colour = "grey", linetype = 2)) + 
+  labs(y = "Excess motality rate (x 100,000)", x = "", title = "B") + 
+  theme(panel.grid.major.x = element_line(colour = "grey", linetype = 2),
+    legend.position = "top") + 
   coord_flip()
 
+#----- Put Figures together
+
+# Wrap plots
+wrap_plots(figa, figb, nrow = 1)
+
 # Save
-ggsave("figures/Fig6b_ExcessComparison.pdf", width = 6)
+ggsave("figures/Fig6_AgeStandardisation.pdf", width = 11)

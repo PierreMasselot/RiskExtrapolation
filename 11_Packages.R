@@ -11,8 +11,6 @@
 #------------------------
 
 #----- Data management
-library(eurostat) # To download Eurostat datasets
-library(giscoR) # For geographic information in Europe
 library(sf) # GIS functions
 library(doParallel) # To parallelize
 library(doSNOW)
@@ -21,9 +19,7 @@ library(dplyr) # data.frame management
 library(terra) # For rasters
 library(PHEindicatormethods) # Includes standard European population
 library(Matrix) # For nearPD function
-library(reshape2) # For long-to-wide
 library(tidyr)
-library(zen4R) # To download data from Zenodo
 library(R.utils) # To read gz files
 
 #----- Analysis
