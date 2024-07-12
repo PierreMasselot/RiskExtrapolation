@@ -13,17 +13,19 @@
 # Fixed effect formula: Non linear effect of age + composite indices of vulnerability
 # (see Appendices 1 and 2 for selection)
 # NB: Additional terms such as a spatial background can be added
-fixform <- coefs_obs ~ ns(age, knots = 60) + pcs
-
-# Select components
-pcs <- comps_obs[,1:npc]
+fixform <- sprintf("cbind(%s) ~ ns(age, knots = 60) + %s", 
+  paste(coefvars, collapse = ", "), 
+  paste(colnames(comps)[1:npc], collapse = " + "))
 
 # Random effect formula: random effect of city
-ranform <- ~ 1|city
+ranform <- ~ 1|city_code
+
+# Extract variance-covariance 
+smat <- select(metadf, starts_with("vcov")) |> data.matrix()
 
 # Fit model
-stage2res <- mixmeta(fixform, random = ranform, data = stage2_obs, S = vcovs_obs) 
-
+stage2res <- mixmeta(as.formula(fixform), random = ranform, 
+  data = metadf, S = smat, subset = conv) 
 
 ####################################
 # Plots
@@ -36,7 +38,8 @@ stage2res <- mixmeta(fixform, random = ranform, data = stage2_obs, S = vcovs_obs
 #----- Predict curves for several ages
 
 # Create prediction data.frame
-agedf <- list(age = agebreaks[-1], pcs = matrix(0, length(agebreaks) - 1, npc))
+agedf <- cbind(data.frame(age = agebreaks), matrix(0, length(agebreaks), npc, 
+  dimnames = list(NULL, sprintf("Comp%i", 1:npc))))
 
 # Predict coefficients by age
 agepreds <- predict(stage2res, agedf, vcov = T)
@@ -74,7 +77,7 @@ for (i in seq_along(ageERF)){
 abline(h = 1)
 
 # Add legend
-legpars <- list(legend = agebreaks[-1], col = agepal, cex = .8,
+legpars <- list(legend = agebreaks, col = agepal, cex = .8,
   lty = 1, lwd = 2, title = "Age", horiz = T, xpd = T)
 legdim <- do.call(legend, c(legpars, list(x = "center", plot = F)))
 do.call(legend, c(legpars, 
@@ -82,7 +85,7 @@ do.call(legend, c(legpars,
     y = par("usr")[4])))
 
 # Save
-dev.print(pdf, file = "figures/Fig2_age.pdf", width = 7, height = 5)
+dev.print(pdf, file = "figures/Fig3_age.pdf", width = 7, height = 5)
 
 
 #------------------
@@ -90,32 +93,33 @@ dev.print(pdf, file = "figures/Fig2_age.pdf", width = 7, height = 5)
 #------------------
 
 # Parameters on what city/age group combination to display
-citypred <- "IT004C"
+citypred <- "IT002C"
 agecurve <- agelabs[4]
 
 #----- Prepare ERFs
 
 # Index for city
-ind <- with(stage2df, city == citypred & agegroup == agecurve)
+ind <- with(metadf, city_code == citypred & agegroup == agecurve)
 
 # Fit models with various numbers of components and predict
 comp_pred <- foreach(k = 0:npc) %do% {
   
   # Deal with no component and extract right number
   if (k == 0){
-    kform <- update(fixform, ~ . - pcs)
+    kform <- sprintf("cbind(%s) ~ ns(age, knots = 60)", 
+      paste(coefvars, collapse = ", "))
   } else {
-    pcs <- comps_obs[, 1:k, drop = F]
-    kform <- fixform
+    kform <- sprintf("cbind(%s) ~ ns(age, knots = 60) + %s", 
+      paste(coefvars, collapse = ", "), 
+      paste(colnames(comps)[1:k], collapse = " + "))
   }
   
   # Fit model
-  fit <- mixmeta(kform, random = ranform, data = stage2_obs, S = vcovs_obs) 
+  fit <- mixmeta(as.formula(kform), random = ranform, 
+    data = metadf, S = smat, subset = conv) 
   
   # Predict for one city
-  newdata <- list(age = stage2df$age[ind], 
-    pcs = comps[ind, seq_len(k), drop = F])
-  predict(fit, newdata, vcov = T)
+  predict(fit, metadf[ind,], vcov = T)
 }
 
 # Create ERFs
@@ -127,15 +131,17 @@ comp_erf <- lapply(comp_pred, function(x){
 })
 
 # ERF for first-stage
-firstpred <- mmtbasis %*% coefs[ind,]
+coefsel <- unlist(metadf[ind, grep("coef", names(metadf))])
+vcovsel <- metadf[ind, grep("vcov", names(metadf))] |> xpndMat()
+firstpred <- mmtbasis %*% coefsel
 mmt <- mmtper[which.min(firstpred)]
-firsterf <- crosspred(ovbasis, coef = coefs[ind,], vcov = vcovs[[which(ind)]], 
+firsterf <- crosspred(ovbasis, coef = coefsel, vcov = vcovsel, 
   model.link = "log", at = ovper, cen = mmt)
 
 #----- Plot
 
 # Color palette
-comppal <- mako(length(comp_erf), end = .8, alpha = .6)
+comppal <- mako(length(comp_erf), end = .8)
 
 # Initialize plot, draw grid and custom x-axis
 plot(NA, bty = "l", xaxt = "n", 
@@ -164,4 +170,4 @@ legend(x = mean(par("usr")[1:2]), y = par("usr")[4] - legdim$rect$h,
   box.col = "white", xjust = 0.5)
 
 # Save
-dev.print(pdf, file = "figures/Fig3_compsPred.pdf")
+dev.print(pdf, file = "figures/Fig4_compsPred.pdf")

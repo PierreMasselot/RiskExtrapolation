@@ -10,13 +10,13 @@
 #-----------------------
 
 # Select variables, sort, transform and rename
-city_desc <- metadata |>
-  subset(select = c(CITY_CODE, LABEL, geozone, obs, pop, tmean)) |>
-  arrange(CITY_CODE) |>
+city_desc <- metadf |>
+  subset(select = c(city_code, city_name, geozone, obs, pop, tmean)) |>
+  arrange(city_code) |>
   mutate(obs = factor(obs, levels = c(T, F), labels = c("Yes", "No")),
     pop = formatC(pop, format = "f", big.mark = ",", digits = 0),
     tmean = formatC(tmean, format = "f", digits = 1)) |>
-  rename(`Eurostat code` = "CITY_CODE", Name = "LABEL", Region = "geozone", 
+  rename(`Eurostat code` = "city_code", Name = "city_name", Region = "geozone", 
     Observed = "obs", Population = "pop", `Mean temperature` = "tmean")
 
 # Export

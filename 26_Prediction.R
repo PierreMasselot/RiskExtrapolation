@@ -12,39 +12,45 @@
 
 #----- Fixed effect prediction (age and vulnerability indices)
 
-# Create prediction data.frame including all extracted components
-newdata <- list(pcs = comps[,1:npc], age = stage2df$age)
-
 # Predict coefficients
-fixpred <- predict(stage2res, newdata, vcov = T)
+fixpred <- predict(stage2res, metadf, vcov = T)
+
+# Extract coefs and vcovs
+fixcoef <- sapply(fixpred, "[[", "fit") |> t()
+fixvcov <- sapply(fixpred, function(x) vechMat(x$vcov)) |> t()
 
 #----- Random effects from Kriging model
 
 # Predict at every city
-spatpred <- predict(spatmod, stage2df)
+spatpred <- predict(spatmod, metadf)
 
-# Extract prediction and covariance matrix
-ranpred <- foreach(x = iter(spatpred, by = "row")) %do% {
-  fit <- dplyr::select(x, contains("pred")) |> unlist()
-  vcov <- dplyr::select(x, contains("var") | contains("cov")) |> unlist()
-  vcov <- vcov[order(gsub("(.var)|(cov.)", "", names(vcov)))]
-  list(fit = fit, vcov = xpndMat(vcov))
-}
-names(ranpred) <- stage2df$city
+# Extract coefficients and covariance matrix
+rancoef <- dplyr::select(spatpred, matches("pred$"))
+ranvcov <- dplyr::select(spatpred, contains("var") | contains("cov")) 
+ranvcov <- ranvcov[, order(gsub("(.var)|(cov.)", "", names(ranvcov)))]
 
 #----- Create curves
 
 # Add fixed and random effect predictions
-predcoefs <- Map(function(fix, ran) Map(`+`, fix, ran),
-  fixpred, ranpred)
+predcoefs <- fixcoef + rancoef
+predvcov <- fixvcov + ranvcov
+
+# Put together into data.frame
+names(predcoefs) <- coefvars
+names(predvcov) <- grep("vcov", names(stage1res), value = T)
+cityageres <- cbind(metadf[, c("city_code", "agegroup", "obs", "geozone")], 
+  predcoefs, predvcov)
 
 # Reconstruct curves
-predERF <- lapply(predcoefs, function(x){
-  uncentred <- mmtbasis %*% x$fit
+predERF <- foreach(co = iter(predcoefs, by = "row"), 
+  v = iter(predvcov, by = "row")) %do% 
+{
+  uncentred <- mmtbasis %*% unlist(co)
   mmt <- mmtper[which.min(uncentred)]
-  crosspred(ovbasis, coef = x$fit, vcov = x$vcov, model.link = "log", 
-    at = ovper, cen = mmt)
-})
+  crosspred(ovbasis, coef = unlist(co), vcov = xpndMat(unlist(v)), 
+    model.link = "log", at = ovper, cen = mmt)  
+}
+
 
 ####################################
 # Plots
@@ -56,11 +62,11 @@ predERF <- lapply(predcoefs, function(x){
 
 # Indices for highest age-group
 set.seed(1)
-curveind <- with(stage2df, which(agegroup == levels(agegroup)[4] & !obs)) |>
+curveind <- with(metadf, which(agegroup == levels(agegroup)[4] & !obs)) |>
   sample(10)
 
 # Palette (depends on latitude)
-latitudes <- stage2df[curveind, "lat"]
+latitudes <- metadf[curveind, "lat"]
 latbreaks <- seq(floor(min(latitudes)), ceiling(max(latitudes)), by = 1)
 latcut <- cut(latitudes, breaks = latbreaks)
 predpal <- mako(nlevels(latcut), end = .8)
@@ -87,5 +93,5 @@ image.plot(legend.only = T, zlim = range(latbreaks), breaks = latbreaks,
   col = predpal, legend.lab = "Latitude")
 
 # Save
-dev.print(pdf, file = "figures/Fig5_examplePred.pdf")
+dev.print(pdf, file = "figures/Fig6_examplePred.pdf")
 

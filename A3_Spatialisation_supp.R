@@ -21,6 +21,49 @@ plot(vario, spatmod)
 dev.print(pdf, "figures/FigS2_variogram.pdf")
 
 
+# #------------------
+# # Sensitivity analysis
+# #------------------
+# 
+# # Grid of ranges
+# rnggrid <- c(0.5, 1, 1.5, 2)
+# 
+# # Loop on grid to fit variogram
+# rngres <- lapply(rnggrid, function(rng){
+#   vp <- variopars; vp$range <- rng
+#   vm <- do.call(vgm, variopars)
+#   fit.lmc(vario, cokrig, varmod, fit.method = 6, correct.diagonal = 1.01)
+# })
+# 
+# # Loop on results to get ERFs
+# rngerf <- lapply(rngres, function(krigmod){
+#   
+#   # Predict
+#   sp <- predict(krigmod, metadf)
+#   rc<- dplyr::select(sp, matches("pred$"))
+#   rv <- dplyr::select(sp, contains("var") | contains("cov")) 
+#   rv <- rv[, order(gsub("(.var)|(cov.)", "", names(rv)))]
+#   
+#   # Full coef
+#   pc <- fixcoef + rc
+#   pv <- fixvcov + rv
+#   
+#   # ERF
+#   uncentred <- mmtbasis %*% t(data.matrix(pc))
+#   mmt <- mmtper[apply(uncentred, 2, which.min)]
+#   cenb <- onebasis(mmt, fun = varfun, degree = vardegree, knots = ovknots, 
+#     Bound = range(ovper)) 
+#   mapply(function(co, ce) scale(ovbasis, ce) %*% co, as.data.frame(t(pc)),
+#     as.data.frame(t(cenb)))
+# })
+# 
+# # Get cold and heat
+# coldrr <- sapply(rngerf, function(x){
+#   x[predper == 1, metadf$obs]
+# })
+
+
+
 #------------------
 # Inverse distance weighting
 # Replaces lines 23-48 in 25_Spatialisation.R

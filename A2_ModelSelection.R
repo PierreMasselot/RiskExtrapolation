@@ -10,7 +10,7 @@
 #----- Parameters
 
 # Maximum number of components to try
-maxk <- 8
+maxk <- 10
 
 # List of models for age
 compared <- c(
@@ -26,10 +26,10 @@ compared <- c(
 #-------------------------
 
 # Create full factorial grid
-modgrid <- expand.grid(ncomp = 1:maxk, agemod = compared)
+modgrid <- expand.grid(ncomp = 0:maxk, agemod = compared)
 
 # Initialise random formula
-ranform <- ~ 1|city
+ranform <- ~ 1|city_code
 
 # Prepare parallelisation
 ncores <- detectCores()
@@ -41,16 +41,19 @@ aiclist <- foreach(k = modgrid$ncomp, a = modgrid$agemod, .combine = c,
   .packages = c("mixmeta", "splines")) %dopar% 
 {
   
-  # Extract components
-  pcs <- comps_obs[,seq_len(k)]
-  
   # Create formula
-  fixform <- as.formula(sprintf("coefs_obs ~ pcs + %s", a))
+  if (k == 0){
+    kaform <- sprintf("cbind(%s) ~ %s", 
+      paste(coefvars, collapse = ", "), a)
+  } else {
+    kaform <- sprintf("cbind(%s) ~ %s + %s", 
+      paste(coefvars, collapse = ", "), a,
+      paste(colnames(comps)[1:k], collapse = " + "))
+  }
   
   # Fit model
-  coefs_obs <- coefs_obs
-  fit <- mixmeta(fixform, random = ranform, 
-    data = stage2_obs, S = vcovs_obs) 
+  fit <- mixmeta(as.formula(kaform), random = ranform, 
+    data = metadf, S = smat, subset = conv) 
   
   # Extract AIC
   AIC(fit)
@@ -68,17 +71,21 @@ names(compared) <- c("Factor", "Linear",
   sprintf("NS (%i DF)", 3:4))
 
 # Color palette
-pal <- mako(length(compared), end = .8)
+pal <- mako(length(compared), end = 1)
+shppal <- rep_len(rep(15:18), length(compared))
 
 # Plot data.frame
 plotdf <- cbind(modgrid, deltaAIC = aiclist - min(aiclist))
 
 # Plot
-ggplot(plotdf, aes(x = ncomp, y = deltaAIC, group = agemod, col = agemod)) + 
+ggplot(plotdf, aes(x = ncomp, y = deltaAIC, group = agemod, col = agemod, 
+    shape = agemod)) + 
   theme_classic() + 
-  geom_line(linewidth = 1) + geom_point(shape = 16, size = 2) + 
+  geom_line(linewidth = 1) + geom_point(size = 4) + 
   scale_color_manual(values = pal, labels = names(compared), 
     name = "Age model") + 
+  scale_shape_manual(values = shppal, name = "Age model", 
+    labels = names(compared)) +
   scale_x_continuous(name = "Number of components", breaks = 1:maxk) + 
   scale_y_continuous(name = "\U0394 AIC") + 
   geom_hline(yintercept = c(0, 2, 5, 10), linetype = c(1, 2, 2, 2))

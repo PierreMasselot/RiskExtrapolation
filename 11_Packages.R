@@ -41,3 +41,4 @@ library(ggdist)
 library(fields)
 library(tidyterra)
 library(ggnewscale) # To have several fill scales on the same plot
+library(ggforce) # For facet paginate

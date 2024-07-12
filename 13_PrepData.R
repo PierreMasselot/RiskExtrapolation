@@ -15,44 +15,46 @@ mortdata <- fread("data/mortality.csv.gz")
 
 # Read temperature series and merge
 tempdata <- fread("data/tmean.csv.gz")
-fulldata <- merge(mortdata, tempdata, by.x = c("CITY_CODE", "date"), 
-  by.y = c("URAU_CODE", "date"))
+tsdata <- merge(mortdata, tempdata, all.x = T)
 
 # Order
-setkey(fulldata, CITY_CODE, date)
+setkey(tsdata, city_code, date)
 
 # Create date-related variables
-fulldata[, ":="(year = year(date), dow = weekdays(date))]
-
-# Split
-dlist <- split(fulldata[,!"CITY_CODE"], fulldata$CITY_CODE)
-dlist <- lapply(dlist, as.data.frame)
+tsdata[, ":="(year = year(date), dow = weekdays(date))]
 
 #---------------------------
 # Read Metadata
 #---------------------------
 
-# Load data from EUcityTRM
-metadata <- read.csv("data/metadata.csv.gz")
+# Create all city-age combinations
+agelabs <- grep("deaths_[[:digit:]]", names(tsdata), value = T) |> 
+  gsub(pattern = "deaths_", replacement = "")
+metadf <- expand.grid(agegroup = agelabs, 
+  city_code = unique(tsdata$city_code))
+
+# Load data from EUcityTRM and merge
+metadata_spatial <- read.csv("data/metadata_spatial.csv.gz")
+metadf <- merge(metadf, metadata_spatial) 
+
+# Load age-specific demographic data
+metadata_age <- read.csv("data/metadata_age.csv.gz")
+
+
+#---------------------------
+# Separate observed and predicted cities
+#---------------------------
 
 # Draw observed cities for the first stage
 set.seed(1)
-obs <- sample.int(nrow(metadata), nobs)
-metadata$obs <- seq_len(nrow(metadata)) %in% obs
+obs <- sample(unique(tsdata$city_code), nobs)
 
-# Create all city-age combinations
-agelabs <- grep("all_[[:digit:]]", names(fulldata), value = T) |> 
-  gsub(pattern = "all_", replacement = "")
-stage2df <- expand.grid(agegroup = agelabs, city = metadata$CITY_CODE)
+# Separate time series data
+tspred <- tsdata[!city_code %in% obs]
+tsdata <- tsdata[city_code %in% obs]
 
-# Add name, and geographical information
-stage2df <- merge(stage2df, 
-  metadata[, c("CITY_CODE" ,"CITY_NAME", "geozone", "lon", "lat", "obs")], 
-  by.x = "city", by.y = "CITY_CODE")
-
-# Separate data.frame
-stage2_obs <- subset(stage2df, obs)
-stage2_pred <- subset(stage2df, !obs)
+# Include info in metadata
+metadf <- mutate(metadf, obs = city_code %in% obs)
 
 #---------------------------
 # Additional data for results
@@ -64,12 +66,12 @@ italymap <- st_read("data/italymap.shp")
 #----- Common basis to represent curves
 
 # Estimate an overall empirical distribution of temperature
-tmeandist <- t(sapply(dlist, 
-  function(x) quantile(x$tmean, predper / 100, na.rm = T)))
-ovper <- colMeans(tmeandist)
+tmeandist <- tempdata[, .(per = predper, tper = quantile(tmean, predper / 100)), 
+  by = city_code]
+ovper <- tmeandist[, .(tmean = mean(tper)), by = per]$tmean
 
 # Create average basis
-ovknots <- ovper[sprintf("%i.0%%",varper)]
+ovknots <- ovper[predper %in% varper]
 ovbasis <- onebasis(ovper, fun = varfun, degree = vardegree, knots = ovknots)
 
 # Axis locations for plots
@@ -82,13 +84,11 @@ mmtper <- ovper[between(predper, mmprange[1], mmprange[2])]
 #----- Useful objects
 
 # Number of spline coefficients
-nc <- length(varper) + 2
+nc <- ncol(ovbasis)
 
 # Number of cities
-n <- nrow(metadata)
+n <- nrow(metadata_spatial)
 
 # Number of city-ages
-na <- nrow(stage2df)
+na <- nrow(metadf)
 
-# Length of time series
-nts <- nrow(dlist[[1]])

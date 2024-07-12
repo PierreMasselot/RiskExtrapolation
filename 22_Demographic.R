@@ -16,33 +16,28 @@
 
 #----- Add average age of death for each age group of each city
 
-# Order death rates by age
-deathrates <- metadata[,sort(grep("deathrate_[[:digit:]]{4}", 
-  names(metadata), value = T))]
+# Detailed info about age groups
+agegrs <-  mutate(metadf, agelow = as.numeric(substring(agegroup, 1, 2)),
+    agehigh = as.numeric(substring(agegroup, 3))) |>
+  subset(select = c(city_code, agegroup, agelow, agehigh))
 
-# Detail of age groups
-amin <- as.numeric(substr(names(deathrates), 11, 12))
-amax <- as.numeric(substr(names(deathrates), 13, 14))
-amean <- (amin + amax) / 2
-arange <- amax - amin
+# Extract all ages represented in each age group
+ages <- subset(agegrs, !is.na(agehigh)) |>
+  reframe(age = agelow:agehigh, .by = c(city_code, agegroup))
+agesdemo <- subset(metadata_age, !is.na(agehigh)) |>
+  reframe(age = age:agehigh, deathrate,  .by = c(city_code, age))
 
-# Compute average age of death inside each group
-# Mean of ages weighted by their specific death rates
-agebreaks <- substr(agelabs, 1, 2) |> as.numeric()
-groups <- cut(amax, agebreaks)
-deathages <- tapply(seq_along(deathrates), groups, function(ind){
-  data.matrix(deathrates[,ind]) %*% (amean[ind] * arange[ind]) / 
-    (data.matrix(deathrates[,ind]) %*% arange[ind])
-})
+# Compute weighted average age
+ages <- merge(ages, agesdemo, all.x = T) |>
+  summarise(age = weighted.mean(age, deathrate), .by = c(city_code, agegroup))
 
-# Add life expectancy for oldest age group
-deathages[[tail(agelabs, 1)]] <- metadata[[sprintf("lifexp_%2.0f", 
-  tail(agebreaks, 1))]] + tail(agebreaks, 1)
+# Life expectancy for oldest age group
+oldage <- subset(agegrs, is.na(agehigh)) |>
+  merge(metadata_age, by.x = c("city_code", "agelow"), 
+    by.y = c("city_code", "age")) |>
+  mutate(age = agelow + lifexp)
+ages <- rbind(ages, oldage[, c("city_code", "agegroup", "age")]) |>
+  arrange(city_code, agegroup)
 
-# Merge with stage 2 data.frame
-deathagesdf <- data.frame(agegroup = rep(agelabs, each = nrow(metadata)),
-  city = rep(metadata$CITY_CODE, length(agelabs)), 
-  age = unlist(deathages))
-stage2df <- merge(stage2df, deathagesdf, all.x = T)
-stage2_obs <- merge(stage2_obs, deathagesdf, all.x = T)
-stage2_pred <- merge(stage2_pred, deathagesdf, all.x = T)
+# Merge with metadata
+metadf <- merge(metadf, ages)

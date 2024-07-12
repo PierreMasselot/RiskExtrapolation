@@ -12,6 +12,7 @@ library(data.table)
 library(readxl)
 library(zen4R)
 library(dplyr)
+library(tidyr)
 library(giscoR)
 library(sf)
 
@@ -27,7 +28,7 @@ origagebreaks <- c(1, seq(5, 100, by = 5))
 # Target age groups (for the analysis)
 agebreaks <- c(0, 45, 65, 75, 85)
 agelabs <- c(paste(sprintf("%02i", agebreaks[-length(agebreaks)]), 
-  agebreaks[-1], sep = ""), sprintf("%i+", agebreaks[length(agebreaks)]))
+  agebreaks[-1] - 1, sep = ""), sprintf("%i+", agebreaks[length(agebreaks)]))
 
 #------------------------
 # Download mortality data
@@ -40,12 +41,15 @@ linkd <- paste0("https://www.istat.it/storage/dati_mortalita",
   "/decessi-comunali-giornalieri_4-21062023.zip")
 
 # Download zip and open csv
-temp <- tempfile()
+temp <- tempfile(fileext = ".zip")
+tdir <- gsub("\\\\[[:alnum:]]*\\.zip", "", temp)
 download.file(linkd, temp)
 ftr <- grep("csv", zip_list(temp)$filename, value = T)
-deathdata <- fread(cmd = sprintf("unzip -p %s %s", temp, ftr), 
+unzip(temp, ftr, exdir = tdir)
+deathdata <- fread(sprintf("%s\\%s", tdir, ftr), 
   encoding = "Latin-1", na.string = "n.d.")
 unlink(temp)
+unlink(sprintf("%s\\%s", tdir, ftr))
 
 # Pad province codes with zeros
 deathdata[, COD_PROVCOM := sprintf("%06d", COD_PROVCOM)]
@@ -80,13 +84,13 @@ years <- sprintf("20%s", substr(totalvars, 3, 4))
 # Reshape to long
 datalong <- melt.data.table(deathdata, id.vars = c("COD_PROVCOM", "REG", 
     "PROV", "CL_ETA", "GE", "CITY_ID", "CITY_NAME"),
-  measure.vars = totalvars, variable.name = "year", value.name = "all")
+  measure.vars = totalvars, variable.name = "year", value.name = "deaths")
 
 # Rename years
 datalong[, year := gsub("T_", "20", year, fixed = T)]
 
 # Aggregate by city, date and age
-datatab <- datalong[, .(all = sum(all, na.rm = T)), 
+datatab <- datalong[, .(deaths = sum(deaths, na.rm = T)), 
   keyby = .(CITY_ID, year, GE, CL_ETA)]
 
 # Create date variables
@@ -95,16 +99,16 @@ datatab[, day := GE - month * 100]
 datatab[, date := as.Date(paste(year, month, day, sep = "-"))]
 
 # Create full list of dates
-fullfactor <- as.data.table(expand.grid(CITY_CODE = unique(datatab$CITY_ID), 
+fullfactor <- as.data.table(expand.grid(city_code = unique(datatab$CITY_ID), 
   date = seq(dstart, dend, by = "day"), agegroup = 0:21))
 
 # Merge with datatab
 fulldata <- merge(fullfactor, datatab, 
-  by.x = c("CITY_CODE", "date", "agegroup"), 
+  by.x = c("city_code", "date", "agegroup"), 
   by.y = c("CITY_ID", "date", "CL_ETA"), all.x = T, all.y = F)
 
 # Fill NAs
-fulldata[, all := nafill(all, fill = 0)]
+fulldata[, deaths := nafill(deaths, fill = 0)]
 
 # Clean date related variables
 fulldata[, ":="(year = NULL, month = NULL, day = NULL, GE = NULL)]
@@ -112,14 +116,16 @@ fulldata[, ":="(year = NULL, month = NULL, day = NULL, GE = NULL)]
 # Aggregate age-groups
 fulldata[, agegroup := cut(c(0, origagebreaks)[agegroup + 1], c(agebreaks, Inf), 
   right = F, labels = agelabs)]
-fulldata <- fulldata[, .(all = sum(all)), by = .(CITY_CODE, date, agegroup)]
+fulldata <- fulldata[, .(deaths = sum(deaths)), 
+  by = .(city_code, date, agegroup)]
 
 # Transform age groups as wide
-fulldata <- dcast.data.table(fulldata, CITY_CODE + date ~ agegroup, 
-  value.var = "all")
+fulldata <- dcast.data.table(fulldata, city_code + date ~ agegroup, 
+  value.var = "deaths")
+setnames(fulldata, agelabs, sprintf("deaths_%s", agelabs))
 
-# Rename
-setnames(fulldata, agelabs, sprintf("all_%s", agelabs))
+# Arrange
+setorder(fulldata, city_code, date)
 
 #----- Save
 
@@ -137,18 +143,21 @@ if (!file.exists(fname)){
 
 #----- Metadata
 
-# Download metadata used in The Lancet Planetary Health paper from Zenodo
-download_zenodo("10.5281/zenodo.7672108", path = "data",
+# Download data used in The Lancet Planetary Health paper from Zenodo
+# Also include the metadata
+# download_zenodo("10.5281/zenodo.7672108", path = tdir,
+#   files = list("metadata.csv"))
+download_zenodo("10.5281/zenodo.10288665", path = tdir,
   files = list("metadata.csv"))
 
 # Read metadata
-metadata <- read.csv("data/metadata.csv")
-unlink("data/metadata.csv")
+metadata <- read.csv(sprintf("%s/metadata.csv", tdir))
+unlink(sprintf("%s/metadata.csv", tdir))
 
 # Select only Italy
 metadata <- subset(metadata, CNTR_CODE == "IT", -c(CNTR_CODE, cntr_name, region, 
-  nmiss, mcc_code, cityname, country, inmcc)) |>
-  rename(CITY_CODE = "URAU_CODE", CITY_NAME = "URAU_NAME")
+    nmiss, mcc_code, cityname, country, inmcc, LABEL)) |>
+  rename(city_code = "URAU_CODE", city_name = "URAU_NAME")
 
 #----- Info about municipalities
 
@@ -157,12 +166,15 @@ linkg <- paste0("https://www.istat.it/storage/codici-unita-amministrative",
   "/Elenco-codici-statistici-e-denominazioni-delle-unita-territoriali.zip")
 
 # Download and load into session
-temp <- tempfile()
+temp <- tempfile(fileext = ".zip")
+tdir <- gsub("\\\\[[:alnum:]]*\\.zip", "", temp)
 download.file(linkg, temp)
-ftr <- grep("csv", zip_list(temp)$filename, value = T)
-geoinfo <- fread(cmd = sprintf("unzip -p %s %s", temp, ftr), 
+ftr <- grep("csv", zip_list(temp)$filename, value = T, useBytes = T)
+unzip(temp, ftr, exdir = tdir, junkpaths = T)
+geoinfo <- fread(sprintf("%s\\%s", tdir, gsub("^.*/", "", ftr, useBytes = T)), 
   encoding = "Latin-1", na.string = "n.d.")
 unlink(temp)
+unlink(sprintf("%s\\%s", tdir, gsub("^.*/", "", ftr, useBytes = T)))
 
 # Link to cities, select and rename
 geoinfo <- mutate(geoinfo, `LAU CODE` = sprintf("%06d", 
@@ -173,12 +185,29 @@ geoinfo <- mutate(geoinfo, `LAU CODE` = sprintf("%06d",
   unique()
 
 # Add to metadata
-metadata <- merge(metadata, geoinfo, by.x = "CITY_CODE", by.y = "CITY_ID")
+metadata <- merge(metadata, geoinfo, by.x = "city_code", by.y = "CITY_ID")
+
+# Separate spatial and age-related variables
+agevars <- grep("[[:alpha:]]+_[[:digit:]]+$", names(metadata), value = T)
+metadata_spatial <- metadata[, !names(metadata) %in% agevars]
+
+# Age-related variables into long and characterise age groups
+metadata_age <- metadata[, c("city_code", agevars)]
+names(metadata_age) <- gsub("([^_])[[:digit:]]{2}$", "\\1", names(metadata_age))
+metadata_age <- pivot_longer(metadata_age, cols = !city_code, 
+    names_to = c(".value", "age"), names_sep = "_") |>
+  arrange(city_code, age) |>
+  mutate(age = as.numeric(age), agehigh = lead(age) - 1, .by = city_code) |>
+  select(city_code, age, agehigh, prop, deathrate, lifexp)
+
 
 # Write metadata
-fname <- "data/metadata.csv.gz"
+fname <- "data/metadata_spatial.csv.gz"
 if (!file.exists(fname)){
-  fwrite(metadata, fname, quote = F, compress = "gzip")
+  fwrite(metadata_spatial, "data/metadata_spatial.csv.gz", 
+    quote = F, compress = "gzip")
+  fwrite(metadata_age, "data/metadata_age.csv.gz", 
+    quote = F, compress = "gzip")
 }
 
 #----- Geographical data

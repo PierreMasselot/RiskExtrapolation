@@ -14,7 +14,7 @@
 blupres <- blup(stage2res, type = "residual")
 
 # Add city and lat/long
-blupres <- cbind(blupres, stage2_obs[,c("city", "lon", "lat")])
+blupres <- cbind(blupres, subset(metadf, conv, c(city_code, lon, lat)))
 
 # Remove duplicates (same for all age groups within location)
 dups <- duplicated(blupres)
@@ -26,9 +26,9 @@ blupres <- blupres[!dups,]
 
 # Create gstat object: add all coefficients in the object for co-kriging
 cokrig <- NULL
-for (i in seq_len(ncol(coefs))) {
-  form <- sprintf("b%i ~ 1", i)
-  cokrig <- gstat(cokrig, id = sprintf("b%i", i), formula = as.formula(form), 
+for (i in coefvars) {
+  form <- sprintf("%s ~ 1", i)
+  cokrig <- gstat(cokrig, id = i, formula = as.formula(form), 
     data = blupres, locations = ~ lon + lat)
 }
 
@@ -70,32 +70,31 @@ surfpred <- mask(surfpred, italymap)
 #----- Extract locations
 
 # Location dataset
-loc_sf <- st_as_sf(stage2df, coords = c("lon","lat"), crs = st_crs(4326))
-loc_sf <- subset(loc_sf, !duplicated(city))
+loc_sf <- st_as_sf(metadf, coords = c("lon","lat"), crs = st_crs(4326))
+loc_sf <- subset(loc_sf, !duplicated(city_code))
 loc_sf$obs <- factor(loc_sf$obs, labels = c("Unobserved", "Observed"))
 
 # Include blups for observed cities
-loc_sf <- merge(loc_sf, blupres, all.x = T)
-loc_sf <- subset(loc_sf, select = -c(age, agegroup, lon, lat))
+loc_sf <- merge(loc_sf[, c("city_code", "obs")], blupres, all.x = T)
 
 #----- Interpolation plot
 
 # Select spline coefficient to display
-coefdisp <- 1
+coefdisp <- coefvars[1]
 
 # Shapes
 shp <- c(Observed = 21, Unobserved = 15)
 
 # Limits of random coefficients
-lims <- range(c(values(surfpred)[, sprintf("b%i.pred", coefdisp)], 
-  loc_sf[[sprintf("b%i", coefdisp)]]), na.rm = T)
+lims <- range(c(values(surfpred)[, sprintf("%s.pred", coefdisp)], 
+  loc_sf[[coefdisp]]), na.rm = T)
 
 # Plot
 ggpred <- ggplot() + theme_void() + 
-  geom_spatraster(aes(fill = .data[[sprintf("b%i.pred", coefdisp)]]), 
+  geom_spatraster(aes(fill = .data[[sprintf("%s.pred", coefdisp)]]), 
     data = surfpred) + 
   geom_sf(data = italymap, fill = NA, inherit.aes = F, col = grey(.5)) + 
-  geom_sf(aes(fill = .data[[sprintf("b%i", coefdisp)]], shape = obs), 
+  geom_sf(aes(fill = .data[[coefdisp]], shape = obs), 
     data = loc_sf, size = 3, col = grey(.3)) + 
   scale_fill_scico(palette = "cork", midpoint = 0,
     name = "BLUP residual", limits = lims, na.value = "white") + 
@@ -105,7 +104,7 @@ ggpred <- ggplot() + theme_void() +
 
 # Plot
 ggvar <- ggplot() + theme_void() + 
-  geom_spatraster(aes(fill = .data[[sprintf("b%i.var", coefdisp)]]), 
+  geom_spatraster(aes(fill = .data[[sprintf("%s.var", coefdisp)]]), 
     data = surfpred) + 
   scale_fill_scico(palette = "oslo", name = "Variance", direction = -1,
     na.value = "white") + 
@@ -122,4 +121,4 @@ ggvar <- ggplot() + theme_void() +
 wrap_plots(ggpred, ggvar, guides = "collect")
 
 # Save
-ggsave("figures/Fig4_extrapol_maps.pdf")
+ggsave("figures/Fig5_extrapol_maps.pdf")

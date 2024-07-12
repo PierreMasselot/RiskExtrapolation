@@ -29,7 +29,7 @@ lagknots <- logknots(maxlag, 3)
 
 # List of metapredictors in composite indices
 metaprednames <- c(Population = "pop", 'Population above 65' = "prop_65p", 
-  'Population density' = "popdens", 'Life expectancy' = "lifexp_00", 
+  'Population density' = "popdens", 
   'Social isolation' = "isol", GPD = "gdp", 'Unemployment rate' = "unempl", 
   'Educational level' = "educ", 'Deprivation rate' = "depriv", 
   'Hospital bed rate' = "bedrates", Imperviousness = "imperv", 
@@ -40,7 +40,7 @@ metaprednames <- c(Population = "pop", 'Population above 65' = "prop_65p",
   'Temperature range' = "trange")
 
 # Number of composite vulnerability indices
-npc <- 5
+npc <- 6
 
 # Number of simulations for eCI
 nsim <- 1000
@@ -48,7 +48,7 @@ nsim <- 1000
 #----- Results
 
 # Temperature percentile grid for ERFs
-predper <- c(seq(0.1,1,0.1), 2:98, seq(99,99.9,0.1))
+predper <- c(seq(0,1,0.1), 2:98, seq(99,100,0.1))
 
 # Acceptable MMP range
 mmprange <- c(25, 99)
@@ -58,3 +58,6 @@ axisper <- c(1, 25, 50, 75, 99)
 
 # Denominator for death rates
 byrate <- 10^5
+
+# Ages to which to display results
+agebreaks <- c(45, 65, 75, 85)
