@@ -2,9 +2,9 @@
  
 Fully reproducible code and data for the illustrative application in the paper *A new modelling framework for multi-location studies in environmental epidemiology*. 
 
-Various components of the dataset are provided in the *data* subdirectory. All components are downloaded and pre-processed in the script `00_DownloadData.RData`. The only exception is *data/tmean.csv*, that was extracted using Python from ERA5Land. :warning: This script should not be executed, it is here mainly to document the data gathering process.
+All components of the dataset are provided in the *data* subdirectory. The subdirectory also contains the script `00_DownloadData.RData` that shows how the data were obtained and pre-processed. The only exception is *data/tmean.csv.gz*, that was extracted using Python from ERA5Land. :warning: This script should not be executed, it is here mainly to document the data gathering process.
 
-Excution of the code should start from *11_Packages.R*. 
+Execution of the code should start from *11_Packages.R*. 
 
 1. Scripts *11_Packages.R* to *13_PrepData.R* setup the modelling and load data.
 
