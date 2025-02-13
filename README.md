@@ -1,8 +1,8 @@
-# A new modelling framework for multi-location studies in environmental epidemiology
+# Modelling extensions for multi-location studies in environmental epidemiology
 
 [![DOI](https://zenodo.org/badge/375431495.svg)](https://doi.org/10.5281/zenodo.14076410)
 
-Fully reproducible code and data for the illustrative application in the paper
+Fully reproducible code and data for the illustrative application in the paper:
 
 > Masselot P. and Gasparrini A. (2005) A new modelling framework for multi-location studies in environmental epidemiology. *Statistical Methods in Medical Research* [DOI:10.1177/09622802241313284](https://doi.org/10.1177/09622802241313284).
 
