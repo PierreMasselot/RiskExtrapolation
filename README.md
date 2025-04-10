@@ -4,7 +4,7 @@
 
 Fully reproducible code and data for the illustrative application in the paper
 
-> Masselot P. and Gasparrini A. (2005) A new modelling framework for multi-location studies in environmental epidemiology. *Statistical Methods in Medical Research* [DOI:10.1177/09622802241313284](https://doi.org/10.1177/09622802241313284).
+> Masselot P. and Gasparrini A. (2025) A new modelling framework for multi-location studies in environmental epidemiology. *Statistical Methods in Medical Research* [DOI:10.1177/09622802241313284](https://doi.org/10.1177/09622802241313284).
 
 All components of the dataset are provided in the *data* subdirectory. The subdirectory also contains the script `00_DownloadData.RData` that shows how the data were obtained and pre-processed. The only exception is *data/tmean.csv.gz*, that was extracted using Python from ERA5Land. :warning: This script should not be executed, it is here mainly to document the data gathering process.
 
